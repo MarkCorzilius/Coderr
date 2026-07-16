@@ -129,7 +129,8 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'register': '5/hour'
+        'register': '5/hour',
+        'login': '5/min'
     }
 }
 

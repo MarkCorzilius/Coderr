@@ -5,7 +5,6 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 
 class RegisterSerializer(serializers.ModelSerializer):
 
-    username = serializers.CharField()
     password = serializers.CharField(write_only=True)
     repeated_password = serializers.CharField(write_only=True)
 
@@ -44,3 +43,14 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
 
 
+class LoginSerializer(serializers.ModelSerializer):
+
+    user_id = serializers.IntegerField(source='id', read_only=True)
+    token = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = ['token', 'username', 'email', 'user_id']
+
+    def get_token(self, obj):
+        return self.context['token'].key

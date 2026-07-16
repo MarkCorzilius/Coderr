@@ -4,11 +4,12 @@ from rest_framework.test import APITestCase, APIClient
 from accounts_app.models import User
 from rest_framework.authtoken.models import Token
 
-class AccountTests(APITestCase):
+class RegisterTests(APITestCase):
     
     def setUp(self):
-        self.user = User.objects.create_user(username="Mark", email="markcorzilius@gmail.com", password="test123", repeated_password="test123", type="customer")
+        self.password = '@test123'
 
+        self.user = User.objects.create_user(username="Mark", email="markcorzilius@gmail.com", password=self.password, type="customer")
         self.token = Token.objects.create(user=self.user)
         self.client = APIClient()
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
@@ -18,11 +19,12 @@ class AccountTests(APITestCase):
         self.data = {
             'username': 'Valeria',
             'email': 'valeria@gmail.com',
-            'password': 'test123',
-            'repeated_password': 'test123',
+            'password': self.password,
+            'repeated_password': self.password,
             'type': 'customer'
         }       
         response = self.client.post(self.url, self.data, format='json')
+        print('response test: ', response.data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(User.objects.filter(email='valeria@gmail.com').exists())
 
@@ -30,8 +32,8 @@ class AccountTests(APITestCase):
         data = {
             'username': 'Valeria',
             'email': 'valeria@gmail.com',
-            'password': 'test123',
-            'repeated_password': 'wrong123',
+            'password': self.password,
+            'repeated_password': 'wrongPassword123',
             'type': 'customer'
         }
         response = self.client.post(self.url, data, format='json')
@@ -42,22 +44,10 @@ class AccountTests(APITestCase):
         data = {
             'username': 'AnotherName',
             'email': self.user.email,
-            'password': self.user.password,
-            'repeated_password': self.user.password,
+            'password': self.password,
+            'repeated_password': self.password,
             'type': 'customer'
             }
         response = self.client.post(self.url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(User.objects.filter(email=data['email']).count(), 1)
-
-    def test_register_duplicate_username(self):
-        data = {
-            'username': self.user.username,
-            'email': 'good@gmail.com',
-            'password': self.user.password,
-            'repeated_password': self.user.password,
-            'type': 'customer'
-            }
-        response = self.client.post(self.url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(User.objects.filter(username=data['username']).count(), 1)

@@ -8,8 +8,5 @@ class User(AbstractUser):
         BUSINESS = 'business', 'Business'
 
     type = models.CharField(choices=Type.choices, default=Type.CUSTOMER, max_length=20)
-    username = models.CharField(max_length=80)
+    username = models.CharField(max_length=80, unique=True)
     email = models.EmailField(unique=True)
-
-    USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["username"]

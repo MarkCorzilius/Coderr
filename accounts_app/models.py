@@ -10,3 +10,4 @@ class User(AbstractUser):
     type = models.CharField(choices=Type.choices, default=Type.CUSTOMER, max_length=20)
     username = models.CharField(max_length=80, unique=True)
     email = models.EmailField(unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)

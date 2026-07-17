@@ -21,10 +21,9 @@ from core import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('accounts_app.api.urls')),
-    path('api/profile/', include('profile_app.api.urls')),
     path('api-auth/', include('rest_framework.urls')),
-    
+    path('api/', include('accounts_app.api.urls')),
+    path('api/', include('profile_app.api.urls')),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

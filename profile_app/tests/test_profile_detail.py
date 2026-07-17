@@ -1,11 +1,10 @@
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from accounts_app.models import User
-from profile_app.models import Profile
 from django.urls import reverse
 from rest_framework.authtoken.models import Token
 
-class SingleProfileTests(APITestCase):
+class ProfileDetailTests(APITestCase):
 
     def setUp(self):
         self.password = "@test123"

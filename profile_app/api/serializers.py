@@ -2,7 +2,15 @@ from rest_framework import serializers
 from profile_app.models import Profile
 
 
-class ProfileSerializer(serializers.ModelSerializer):
+class BaseProfileSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username")
+    type = serializers.CharField(source="user.type")
+
+    class Meta:
+        abstract = True
+
+
+class ProfileDetailSerializer(BaseProfileSerializer):
 
     username = serializers.CharField(source='user.username')
     type = serializers.CharField(source='user.type')
@@ -27,3 +35,15 @@ class ProfileSerializer(serializers.ModelSerializer):
         instance.save()
 
         return instance
+
+
+class ProfileListSerializer(BaseProfileSerializer):
+
+    username = serializers.CharField(source='user.username')
+    type = serializers.CharField(source='user.type')
+
+    class Meta:
+        model = Profile
+        fields = ['user', 'username', 'first_name', 'last_name', 
+                  'file', 'location','tel', 'description','working_hours', 'type'
+                  ]  

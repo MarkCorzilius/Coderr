@@ -35,6 +35,11 @@ class OfferDetailSerializer(serializers.ModelSerializer):
             "features", 
             "offer_type",
             ]
+        
+    def validate_price(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Price cannot be negative.")
+        return value
 
 
 class OfferListSerializer(serializers.ModelSerializer):

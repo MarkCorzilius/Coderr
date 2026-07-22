@@ -40,6 +40,27 @@ class BaseOfferUpdateTestCase(APITestCase):
             offer_type="basic",
         )
 
+        OfferDetail.objects.create(
+            offer=self.offer,
+            title="standard Design",
+            revisions=2,
+            delivery_time_in_days=5,
+            price=100,
+            features=["Logo Design"],
+            offer_type="standard",
+        )
+
+        OfferDetail.objects.create(
+            offer=self.offer,
+            title="Premium Design",
+            revisions=2,
+            delivery_time_in_days=5,
+            price=100,
+            features=["Logo Design"],
+            offer_type="premium",
+        )
+
+
         self.client = APIClient()
 
         self.token = Token.objects.create(
@@ -56,7 +77,7 @@ class BaseOfferUpdateTestCase(APITestCase):
 
         self.detail_url = reverse(
             "offer-detail",
-            kwargs={"offer_id": self.offer.id}
+            kwargs={"pk": self.offer.id}
         )
 
         self.payload = {
@@ -64,6 +85,7 @@ class BaseOfferUpdateTestCase(APITestCase):
             "description": 'new description',
             "details": [
                 {
+                    "id": 1,
                     "title": "Basic Design Updated",
                     "revisions": 3,
                     "delivery_time_in_days": 6,
@@ -84,19 +106,24 @@ class OfferUpdateSuccessTests(BaseOfferUpdateTestCase):
         super().setUp()
 
     def test_offer_update_returns_200(self):
+
         response = self.client.patch(self.detail_url, self.payload)
+        self.offer.refresh_from_db()
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertNotEqual(self.offer.user, self.user)
+        self.assertEqual(self.offer.user, self.user)
 
     def test_only_updated_data_changed(self):
         original_title = self.offer.title
+        original_description = self.offer.description
         new_payload = copy.deepcopy(self.payload)
         new_payload.pop('title')
         response = self.client.patch(self.detail_url, new_payload)
+
         self.offer.refresh_from_db()
+        
         offer = Offer.objects.first()
         self.assertEqual(offer.title, original_title)
-        self.assertNotEqual(self.offer.description, response.data['description'])
+        self.assertNotEqual(self.offer.description, original_description)
 
 
 class OfferUpdateAuthorizationTests(BaseOfferUpdateTestCase):
@@ -119,7 +146,7 @@ class OfferUpdateNotFoundTests(BaseOfferUpdateTestCase):
         super().setUp()
         self.url = reverse(
             "offer-detail",
-            kwargs={"offer_id": 9999}
+            kwargs={"pk": 9999}
         )
         self.response = self.client.patch(self.url, self.payload)
 

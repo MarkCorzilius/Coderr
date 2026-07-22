@@ -39,6 +39,26 @@ class BaseDeleteTestCase(APITestCase):
             offer_type="basic",
         )
 
+        OfferDetail.objects.create(
+            offer=self.offer,
+            title="Standard Design",
+            revisions=2,
+            delivery_time_in_days=5,
+            price=100,
+            features=["Logo Design"],
+            offer_type="standard",
+        )
+
+        OfferDetail.objects.create(
+            offer=self.offer,
+            title="Premium Design",
+            revisions=2,
+            delivery_time_in_days=5,
+            price=100,
+            features=["Logo Design"],
+            offer_type="premium",
+        )
+
         self.client = APIClient()
 
         self.token = Token.objects.create(
@@ -49,9 +69,11 @@ class BaseDeleteTestCase(APITestCase):
             user=self.user2
         )
 
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+
         self.detail_url = reverse(
             "offer-detail",
-            kwargs={"offer_id": self.offer.id}
+            kwargs={"pk": self.offer.id}
         )
 
 
@@ -79,15 +101,14 @@ class OfferDeleteAuthorizationTests(BaseDeleteTestCase):
         self.assertNotEqual(self.offer.user, self.user2)
 
     def test_offer_still_exists(self):
-        first_offer = Offer.objects.first()
         self.assertEqual(Offer.objects.count(), 1)
-        self.assertEqual(first_offer, self.response.data[0])
+        self.assertTrue(Offer.objects.filter(pk=self.offer.pk).exists())
 
 
 class OfferDeleteNotFoundTests(BaseDeleteTestCase):
     def setUp(self):
         super().setUp()
-        url = reverse("offer-detail", kwargs={"offer_id": 9999})
+        url = reverse("offer-detail", kwargs={"pk": 9999})
         self.response = self.client.delete(url)
 
     def test_delete_undefined_offer_returns_404(self):

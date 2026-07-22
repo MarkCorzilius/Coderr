@@ -45,7 +45,7 @@ class BaseOfferRetrieveTestCase(APITestCase):
 
         self.detail_url = reverse(
             "offer-detail",
-            kwargs={"offer_id": self.offer.id}
+            kwargs={"pk": self.offer.id}
         )
 
 
@@ -78,7 +78,7 @@ class OfferRetrieveNotFoundTests(BaseOfferRetrieveTestCase):
 
     def setUp(self):
         super().setUp()
-        url = reverse("offers", kwargs={'offer_id': 9999})
+        url = reverse("offer-detail", kwargs={'pk': 9999})
         self.response = self.client.get(url)
 
     def test_offer_not_found_returns_404(self):

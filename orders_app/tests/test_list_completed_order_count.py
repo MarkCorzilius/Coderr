@@ -7,7 +7,7 @@ from offers_app.models import Offer, OfferDetail
 from rest_framework.authtoken.models import Token
 
 
-class BaseOrdersTestCase(APITestCase):
+class BaseOrdersCountTestCase(APITestCase):
 
     def setUp(self):
         self.customer_user = User.objects.create_user(
@@ -20,6 +20,13 @@ class BaseOrdersTestCase(APITestCase):
         self.business_user = User.objects.create_user(
             username="business",
             email="business@test.com",
+            password="test123",
+            type="business",
+            )
+
+        self.second_business_user = User.objects.create_user(
+            username="second-business",
+            email="secondbusiness@test.com",
             password="test123",
             type="business",
             )
@@ -80,24 +87,58 @@ class BaseOrdersTestCase(APITestCase):
                 ]
 
         self.order = Order.objects.create(
-            offer_detail_id=self.offer.id
+            offer_detail_id=self.offer_details[0].id,
+            status='in_progres',
+            )
+
+        self.order2 = Order.objects.create(
+            offer_detail_id=self.offer_details[0].id,
+            status='completed',
+            )
+
+        self.order3 = Order.objects.create(
+            offer_detail_id=self.offer_details[0].id,
+            status='completed',
             )
         
-        self.token = Token.objects.create(user=self.customer_user)
+        self.customer_token = Token.objects.create(user=self.customer_user)
+        self.business_token = Token.objects.create(user=self.business_user)
+        self.second_business_token = Token.objects.create(user=self.second_business_user
+)
         self.client = APIClient()
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
-        self.url = reverse('order-list')
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.business_token.key)
+        self.url = reverse('completed-order-count', kwargs={'business_user_id': self.business_user.id})
         self.response = self.client.get(self.url)
 
 
 
-class OrdersListSuccessTests(BaseOrdersTestCase):
+class OrdersCountSuccessTests(BaseOrdersCountTestCase):
 
     def setUp(self):
         super().setUp()
 
+    def test_order_count_returns_200(self):
+        self.assertEqual(self.response.status_code, status.HTTP_200_OK)
 
-class OrdersListAuthenticationTests(BaseOrdersTestCase):
+    def test_order_count_is_correct(self):
+        self.assertEqual(self.response.data['completed_order_count'], 1)
+
+    def test_order_count_returns_expected_field(self):
+        self.assertIn('completed_order_count', self.response.data.keys())
+
+    def test_zero_orders_returns_0_count(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.second_business_token.key)
+        url = reverse('completed-order-count', kwargs={'business_user_id': self.second_business_user.id})
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['completed_order_count'], 0)
+
+    def test_counting_only_in_progress_orders(self):
+        self.assertEqual(self.response.data['completed_order_count'], 1)
+
+
+class OrdersCountAuthenticationTests(BaseOrdersCountTestCase):
 
     def setUp(self):
         super().setUp()
@@ -107,7 +148,23 @@ class OrdersListAuthenticationTests(BaseOrdersTestCase):
         self.assertEqual(self.response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
-class OrdersListValidationTests(BaseOrdersTestCase):
+#class OrdersCountAuthorizationTests(BaseOrdersCountTestCase):
+#
+#    def setUp(self):
+#        super().setUp()
+#        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.second_business_token.key)
+#        self.response = self.client.get(self.url)
+#
+#    def test_not_owner_gets_403(self):
+#        self.assertEqual(self.response.status_code, status.HTTP_403_FORBIDDEN)    
+    
+
+class OrdersCountNotFoundTests(BaseOrdersCountTestCase):
 
     def setUp(self):
         super().setUp()
+
+    def test_business_user_not_found(self):
+        url = reverse('completed-order-count', kwargs={'business_user_id': 9999})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

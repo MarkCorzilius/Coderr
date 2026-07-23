@@ -1,5 +1,6 @@
 from django.db import models
 from accounts_app.models import User
+
 class Order(models.Model):
 
     STATUS_CHOICES = [

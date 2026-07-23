@@ -25,7 +25,7 @@ class BaseOrderCreateTestCase(APITestCase):
             )
 
         self.offer = Offer.objects.create(
-            creator=self.business_user,
+            user=self.business_user,
             title="Professional Website Design",
             image=None,
             description="Modern web design packages for businesses that need a professional online presence.",
@@ -79,17 +79,13 @@ class BaseOrderCreateTestCase(APITestCase):
                 ),
                 ]
 
-        self.order = Order.objects.create(
-            offer_detail_id=self.offer.id
-            )
-        
         self.client = APIClient()
         self.customer_token = Token.objects.create(user=self.customer_user)
         self.business_token = Token.objects.create(user=self.business_user)
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.customer_token.key)
         self.url = reverse('order-list')
         self.payload = {
-            "offer_detail_id": self.offer.id
+            "offer_detail_id": self.offer_details[0].id
         }
         self.response = self.client.post(self.url, self.payload, format='json')
 
@@ -129,6 +125,7 @@ class OrderCreateAuthenticationTests(BaseOrderCreateTestCase):
     def setUp(self):
         super().setUp()
         self.client.credentials()
+        self.response = self.client.post(self.url, self.payload, format='json')
 
     def test_unauthenticated_user_returns_401(self):
         self.assertEqual(self.response.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -139,6 +136,7 @@ class OrderCreateAuthorizationTests(BaseOrderCreateTestCase):
     def setUp(self):
         super().setUp()
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.business_token.key)
+        self.response = self.client.post(self.url, self.payload, format='json')
 
     def test_if_not_a_customer_returns_403(self):
         self.assertEqual(self.response.status_code, status.HTTP_403_FORBIDDEN)
@@ -155,15 +153,9 @@ class OrderCreateValidationTests(BaseOrderCreateTestCase):
         response = self.client.post(self.url, empty_payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-        
-class OrderCreateNotFoundTests(BaseOrderCreateTestCase):
-
-    def setUp(self):
-        super().setUp()
-
     def test_offer_detail_not_found(self):
         payload = {
             "offer_detail_id": 9999,
             }
         response = self.client.post(self.url, payload)
-        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from orders_app.models import Order
 from orders_app.api.serializers import OrderListCreateSerializer, OrderUpdateSerializer
-from orders_app.api.permissions import IsAuthenticatedBusinessUser, IsAuthenticatedCustomerUser, IsAuthenticatedStaffUser
+from orders_app.api.permissions import IsAuthenticatedBusinessOwnerUser, IsAuthenticatedCustomerUser, IsAuthenticatedStaffUser
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 
@@ -19,7 +19,7 @@ class OrderViewSet(viewsets.ModelViewSet):
         if self.action == 'create':
             return [IsAuthenticatedCustomerUser()]
         if self.action in ['update', 'partial_update']:
-            return [IsAuthenticatedBusinessUser()]
+            return [IsAuthenticatedBusinessOwnerUser()]
         if self.action == 'destroy':
             return [IsAuthenticatedStaffUser()]
         return [IsAuthenticated()]

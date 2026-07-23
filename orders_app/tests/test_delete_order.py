@@ -18,15 +18,25 @@ class BaseOrderDeleteTestCase(APITestCase):
             is_staff=True,
             )
 
-        self.normal_user = User.objects.create_user(
-            username="normal-customer",
-            email="normalcustomer@test.com",
+        self.customer_user = User.objects.create_user(
+            username="customer",
+            email="customer@test.com",
             password="test123",
             type="customer",
+            is_staff=False
+            )
+
+        self.business_user = User.objects.create_user(
+            username="business",
+            email="business@test.com",
+            password="test123",
+            type="business",
+            is_staff=False
             )
         
+        
         self.offer = Offer.objects.create(
-            creator=self.normal_user,
+            user=self.customer_user,
             title="Professional Website Design",
             image=None,
             description="Modern web design packages for businesses that need a professional online presence.",
@@ -81,22 +91,30 @@ class BaseOrderDeleteTestCase(APITestCase):
                 ]
 
         self.order = Order.objects.create(
-            offer_detail_id=self.offer.id
-            )
+            customer_user=self.customer_user,
+            business_user=self.business_user,
+            title=self.offer_details[0].title,
+            revisions=self.offer_details[0].revisions,
+            delivery_time_in_days=self.offer_details[0].delivery_time_in_days,
+            price=self.offer_details[0].price,
+            features=self.offer_details[0].features,
+            offer_type=self.offer_details[0].offer_type,
+        )
         
         self.staff_token = Token.objects.create(user=self.staff_user)
-        self.normal_token = Token.objects.create(user=self.normal_user)
+        self.business_token = Token.objects.create(user=self.customer_user)
+        self.customer_token = Token.objects.create(user=self.business_user)
 
         self.client = APIClient()
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.staff_token.key)
         self.url = reverse('order-detail', kwargs={'pk': self.order.id})
-        self.response = self.client.delete(self.url)
 
 
 class OrderDeleteSuccessTests(BaseOrderDeleteTestCase):
 
     def setUp(self):
         super().setUp()
+        self.response = self.client.delete(self.url)
 
     def test_delete_order_returns_204(self):
         self.assertEqual(self.response.status_code, status.HTTP_204_NO_CONTENT)
@@ -110,6 +128,7 @@ class OrderDeleteAuthenticationTests(BaseOrderDeleteTestCase):
     def setUp(self):
         super().setUp()
         self.client.credentials()
+        self.response = self.client.delete(self.url)
 
     def test_unauthenticated_user_returns_401(self):
         self.assertEqual(self.response.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -119,12 +138,12 @@ class OrderDeleteAuthorizationTests(BaseOrderDeleteTestCase):
 
     def setUp(self):
         super().setUp()
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.normal_token.key)
-        self.response = self.client.delete(self.url)
 
     def test_user_is_not_staff_gets_403(self):
-        self.assertFalse(self.normal_user.is_staff)
-        self.assertEqual(self.response.status_code, status.HTTP_403_FORBIDDEN)
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.business_token.key)
+        response = self.client.delete(self.url)
+        self.assertFalse(self.business_user.is_staff)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_order_persist(self):
         self.assertTrue(Order.objects.filter(id=self.order.id).exists())

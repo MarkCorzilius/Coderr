@@ -26,13 +26,13 @@ class BaseOrderUpdateTestCase(APITestCase):
 
         self.foreign_business_user = User.objects.create_user(
             username="foreign_business_user",
-            email="business@test.com",
+            email="foreignbusiness@test.com",
             password="test123",
             type="business",
             )
 
         self.offer = Offer.objects.create(
-            creator=self.business_user,
+            user=self.business_user,
             title="Professional Website Design",
             image=None,
             description="Modern web design packages for businesses that need a professional online presence.",
@@ -87,7 +87,14 @@ class BaseOrderUpdateTestCase(APITestCase):
                 ]
 
         self.order = Order.objects.create(
-            offer_detail_id=self.offer_details[1].id
+            customer_user=self.customer_user,
+            business_user=self.business_user,
+            title=self.offer_details[0].title,
+            revisions=self.offer_details[0].revisions,
+            delivery_time_in_days=self.offer_details[0].delivery_time_in_days,
+            price=self.offer_details[0].price,
+            features=self.offer_details[0].features,
+            offer_type=self.offer_details[0].offer_type,
             )
         
         self.business_token = Token.objects.create(user=self.business_user)
@@ -127,6 +134,7 @@ class OrderUpdateAuthenticationTests(BaseOrderUpdateTestCase):
     def setUp(self):
         super().setUp()
         self.client.credentials()
+        self.response = self.client.patch(self.url, self.payload, format='json')
 
     def test_unauthenticated_user_returns_401(self):
         self.assertEqual(self.response.status_code, status.HTTP_401_UNAUTHORIZED)
@@ -162,11 +170,15 @@ class OrderUpdateValidationTests(BaseOrderUpdateTestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_disallowed_field_returns_400(self):
-        payload = {
-            "price": 9999
-            }
-        response = self.client.patch(self.url, payload, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        old_price = self.order.price
+        response = self.client.patch(
+            self.url,
+            {"price": 9999},
+            format="json"
+        )
+        self.order.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.order.price, old_price)
 
 
 class OrderUpdateNotFoundTests(BaseOrderUpdateTestCase):

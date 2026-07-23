@@ -25,7 +25,7 @@ class BaseOrdersListTestCase(APITestCase):
             )
 
         self.offer = Offer.objects.create(
-            creator=self.business_user,
+            user=self.business_user,
             title="Professional Website Design",
             image=None,
             description="Modern web design packages for businesses that need a professional online presence.",
@@ -79,9 +79,16 @@ class BaseOrdersListTestCase(APITestCase):
                 ),
                 ]
 
-        self.order = Order.objects.create(
-            offer_detail_id=self.offer_details[1].id
-            )
+        Order.objects.create(
+            customer_user=self.customer_user,
+            business_user=self.business_user,
+            title=self.offer_details[0].title,
+            revisions=self.offer_details[0].revisions,
+            delivery_time_in_days=self.offer_details[0].delivery_time_in_days,
+            price=self.offer_details[0].price,
+            features=self.offer_details[0].features,
+            offer_type=self.offer_details[0].offer_type,
+        )
         
         self.token = Token.objects.create(user=self.customer_user)
         self.client = APIClient()
@@ -117,13 +124,14 @@ class OrderSuccessTests(BaseOrdersListTestCase):
         self.assertEqual(len(self.response.data), 1)
 
     def test_list_contains_expected_fields(self):
-        self.assertEqual(set(self.response.data.keys()), self.expected_fields)
+        self.assertEqual(set(self.response.data[0].keys()), self.expected_fields)
 
 class OrdersListAuthenticationTests(BaseOrdersListTestCase):
 
     def setUp(self):
         super().setUp()
         self.client.credentials()
+        self.response = self.client.get(self.url)
 
     def test_unauthenticated_user_returns_401(self):
         self.assertEqual(self.response.status_code, status.HTTP_401_UNAUTHORIZED)

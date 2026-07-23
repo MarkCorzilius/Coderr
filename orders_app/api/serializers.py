@@ -62,9 +62,11 @@ class OrderListCreateSerializer(BaseOrderSerializer):
         )
         return order
 
-class OrderUpdateSerializer(BaseOrderSerializer):
+class OrderUpdateSerializer(serializers.ModelSerializer):
     
-    class Meta(BaseOrderSerializer.Meta):
+    class Meta:
+        model = Order
+        fields = ['status']
         read_only_fields=[
             "id",
             "customer_user",

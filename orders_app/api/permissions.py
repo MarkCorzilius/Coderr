@@ -1,12 +1,14 @@
 from rest_framework import permissions
 
 
-class IsAuthenticatedBusinessUser(permissions.BasePermission):
+class IsAuthenticatedBusinessOwnerUser(permissions.BasePermission):
     message = 'Only Business user has access.'
 
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.type == 'business'
 
+    def has_object_permission(self, request, view, obj):
+        return obj.business_user == request.user
 
 class IsAuthenticatedCustomerUser(permissions.BasePermission):
     message = 'Only Customer user has access.'

@@ -2,4 +2,6 @@ from django.apps import AppConfig
 
 
 class ReviewsAppConfig(AppConfig):
-    name = 'reviews_app'
+    """App config for reviews_app."""
+
+    name = "reviews_app"

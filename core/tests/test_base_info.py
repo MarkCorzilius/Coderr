@@ -1,16 +1,20 @@
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase, APIClient
-from orders_app.models import Order
+from rest_framework.authtoken.models import Token
+from rest_framework.test import APIClient, APITestCase
+
 from accounts_app.models import User
 from offers_app.models import Offer, OfferDetail
-from rest_framework.authtoken.models import Token
+from orders_app.models import Order
 from reviews_app.models import Review
 
 
 class BaseReviewListTestCase(APITestCase):
+    """Shared test data for base-info endpoint tests."""
 
     def setUp(self):
+        """Set up users, offers, order, and reviews for testing."""
+
         self.customer_user = User.objects.create_user(
             username="customer",
             email="customer@test.com",
@@ -139,17 +143,23 @@ class BaseReviewListTestCase(APITestCase):
 
 
 class BaseInfoTests(BaseReviewListTestCase):
+    """Test base-info endpoint with populated data."""
 
     def setUp(self):
+        """Set up and fire GET request."""
+
         super().setUp()
         self.response = self.client.get(self.url)
 
     def test_returns_200(self):
+        """Test that endpoint returns 200 OK."""
+
         self.assertEqual(self.response.status_code, status.HTTP_200_OK)
 
     def test_returns_correct_counts(self):
-        data = self.response.data
+        """Test that returned counts match the seeded data."""
 
+        data = self.response.data
         self.assertEqual(data["review_count"], 3)
         self.assertEqual(data["average_rating"], 4.0)
         self.assertEqual(data["business_profile_count"], 4)
@@ -157,15 +167,18 @@ class BaseInfoTests(BaseReviewListTestCase):
 
 
 class EmptyBaseInfoTests(APITestCase):
+    """Test base-info endpoint with empty database."""
 
     def setUp(self):
+        """Set up URL for base-info endpoint."""
+
         self.url = reverse('base-info')
 
     def test_empty_db_returns_zeros(self):
+        """Test that empty database returns zero counts."""
+
         response = self.client.get(self.url)
-
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-
         self.assertEqual(response.data["review_count"], 0)
         self.assertEqual(response.data["average_rating"], 0)
         self.assertEqual(response.data["business_profile_count"], 0)

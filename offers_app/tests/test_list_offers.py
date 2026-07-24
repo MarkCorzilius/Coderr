@@ -1,13 +1,148 @@
-from rest_framework.test import APITestCase, APIClient
-from rest_framework import status
 from django.urls import reverse
+from rest_framework import status
+from rest_framework.test import APIClient, APITestCase
 
 from accounts_app.models import User
 from offers_app.models import Offer, OfferDetail
 
 
 class BaseOffersTestCase(APITestCase):
+    """Shared test data for offer list endpoint tests."""
+
     def setUp(self):
+        """Set up two offers with details and an unauthenticated client."""
+
+        self.user = User.objects.create_user(
+            username="Tester", email="tester@gmail.com", password="test123", type="customer"
+        )
+        self.offer1 = Offer.objects.create(
+            user=self.user, title="Website Design", description="Professionelles Website-Design..."
+        )
+        self.offer2 = Offer.objects.create(
+            user=self.user, title="Backend Tests", description="Testing backend..."
+        )
+        for offer in [self.offer1, self.offer2]:
+            OfferDetail.objects.create(
+                offer=offer, title="Basic Design", revisions=2, delivery_time_in_days=5,
+                price=100, features=["Logo Design", "Visitenkarte"], offer_type="basic"
+            )
+            OfferDetail.objects.create(
+                offer=offer, title="Standard Design", revisions=5, delivery_time_in_days=7,
+                price=200, features=["Logo Design", "Visitenkarte", "Briefpapier"], offer_type="standard"
+            )
+            OfferDetail.objects.create(
+                offer=offer, title="Premium Design", revisions=10, delivery_time_in_days=10,
+                price=500, features=["Logo Design", "Visitenkarte", "Briefpapier", "Flyer"], offer_type="premium"
+            )
+        self.client = APIClient()
+        self.url = reverse("offer-list")
+
+
+class OfferListSuccessTests(BaseOffersTestCase):
+    """Test successful offer list retrieval."""
+
+    def test_get_list_returns_200(self):
+        """Test that listing offers returns 200 OK."""
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_get_list_returns_all_offers(self):
+        """Test that all seeded offers are returned."""
+
+        response = self.client.get(self.url)
+        self.assertEqual(len(response.data["results"]), 2)
+
+    def test_get_list_returns_expected_offers(self):
+        """Test that both offer titles appear in the response."""
+
+        response = self.client.get(self.url)
+        titles = [offer["title"] for offer in response.data["results"]]
+        self.assertIn(self.offer1.title, titles)
+        self.assertIn(self.offer2.title, titles)
+
+
+class OfferListFilterTests(BaseOffersTestCase):
+    """Test filtering offers by creator."""
+
+    def test_filter_by_creator(self):
+        """Test that filtering by creator_id returns only that user's offers."""
+
+        response = self.client.get(self.url, {"creator_id": self.user.id})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 2)
+        for offer in response.data["results"]:
+            self.assertEqual(offer["user"], self.user.id)
+
+
+class OfferListSearchTests(BaseOffersTestCase):
+    """Test full-text search on the offer list endpoint."""
+
+    def test_search_by_title(self):
+        """Test that search returns offers matching the title fragment."""
+
+        response = self.client.get(self.url, {"search": "Websit"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["title"], self.offer1.title)
+
+    def test_search_returns_empty_result(self):
+        """Test that search with no matches returns an empty list."""
+
+        response = self.client.get(self.url, {"search": "SomethingThatDoesNotExist"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 0)
+
+
+class OfferListValidationTests(BaseOffersTestCase):
+    """Test edge cases for the offer list endpoint."""
+
+    def test_filter_returns_empty_result(self):
+        """Test that filtering by unknown creator returns empty list."""
+
+        response = self.client.get(self.url, {"creator_id": 999999})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["results"], [])
+
+    def test_returns_empty_list_when_no_offers_exist(self):
+        """Test that an empty database returns an empty result set."""
+
+        Offer.objects.all().delete()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["results"], [])
+
+
+class OfferListPaginationTests(BaseOffersTestCase):
+    """Test pagination behavior on the offer list endpoint."""
+
+    def setUp(self):
+        """Create 15 offers to trigger pagination."""
+
+        self.user = User.objects.create_user(
+            username="Tester", email="tester@gmail.com", password="test123", type="customer"
+        )
+        for i in range(15):
+            Offer.objects.create(user=self.user, title=f"Offer {i}", description="Test")
+        self.client = APIClient()
+        self.url = reverse("offer-list")
+
+    def test_pagination_returns_first_page(self):
+        """Test that first page returns 10 results with a next link."""
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["count"], 15)
+        self.assertEqual(len(response.data["results"]), 10)
+        self.assertIsNotNone(response.data["next"])
+
+    def test_pagination_returns_second_page(self):
+        """Test that second page returns remaining results without a next link."""
+
+        response = self.client.get(self.url, {"page": 2})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 5)
+        self.assertIsNone(response.data["next"])
         self.user = User.objects.create_user(
             username="Tester",
             email="tester@gmail.com",

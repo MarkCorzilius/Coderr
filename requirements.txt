@@ -3,5 +3,6 @@ Django==6.0.7
 django-cors-headers==4.9.0
 django-filter==26.1
 djangorestframework==3.17.1
+git-filter-repo==2.47.0
 pillow==12.3.0
 sqlparse==0.5.5

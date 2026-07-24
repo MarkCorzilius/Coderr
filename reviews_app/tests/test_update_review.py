@@ -157,6 +157,11 @@ class ReviewUpdateSuccessTests(BaseReviewUpdateTestCase):
     def test_patch_returns_expected_fields(self):
         self.assertEqual(set(self.response.data.keys()), self.expected_fields)
 
+    def test_updated_at_works(self):
+        original_update_at = self.review.updated_at
+        self.review.refresh_from_db()
+        self.assertEqual(self.response.data['updated_at'], original_update_at)
+
 
 class ReviewUpdateAuthenticationTests(BaseReviewUpdateTestCase):
 

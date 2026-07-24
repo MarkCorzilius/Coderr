@@ -1,6 +1,6 @@
 from django.urls import path
 
-from profile_app.api.views import (
+from profiles_app.api.views import (
     BusinessProfilesListAPIView,
     CustomerProfilesListAPIView,
     ProfileRetrieveUpdateAPIView,

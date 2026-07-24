@@ -32,6 +32,19 @@ class BaseReviewListTestCase(APITestCase):
             type="business",
             )
 
+        self.third_business_user = User.objects.create_user(
+            username="third-business",
+            email="thirdbusiness@test.com",
+            password="test123",
+            type="business",
+            )
+        self.foreign_business_user = User.objects.create_user(
+            username="foreign-business",
+            email="foreignbusiness@test.com",
+            password="test123",
+            type="business",
+            )
+
         self.offer = Offer.objects.create(
             user=self.business_user,
             title="Professional Website Design",
@@ -106,13 +119,13 @@ class BaseReviewListTestCase(APITestCase):
                 description="Excellent service!"
             ),
             Review.objects.create(
-                business_user=self.business_user,
+                business_user=self.second_business_user,
                 reviewer=self.customer_user,
                 rating=3,
                 description="Good overall, but could be improved."
             ),
             Review.objects.create(
-                business_user=self.business_user,
+                business_user=self.third_business_user,
                 reviewer=self.customer_user,
                 rating=4,
                 description="Everything was great!"
@@ -176,7 +189,7 @@ class ReviewListFilterTests(BaseReviewListTestCase):
             )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 3)
+        self.assertEqual(len(response.data), 1)
 
         for review in response.data:
             self.assertEqual(review['business_user'], self.business_user.id)
@@ -197,7 +210,7 @@ class ReviewListFilterTests(BaseReviewListTestCase):
     def test_filter_by_business_user_id_returns_empty_list(self):
         response = self.client.get(
             self.url,
-            {"business_user_id": self.second_business_user.id}
+            {"business_user_id": self.foreign_business_user.id}
             )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)

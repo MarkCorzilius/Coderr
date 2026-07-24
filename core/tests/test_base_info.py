@@ -8,7 +8,7 @@ from rest_framework.authtoken.models import Token
 from reviews_app.models import Review
 
 
-class BaseReviewCreateTestCase(APITestCase):
+class BaseReviewListTestCase(APITestCase):
 
     def setUp(self):
         self.customer_user = User.objects.create_user(
@@ -28,6 +28,19 @@ class BaseReviewCreateTestCase(APITestCase):
         self.second_business_user = User.objects.create_user(
             username="second-business",
             email="secondbusiness@test.com",
+            password="test123",
+            type="business",
+            )
+
+        self.third_business_user = User.objects.create_user(
+            username="third-business",
+            email="thirdbusiness@test.com",
+            password="test123",
+            type="business",
+            )
+        self.foreign_business_user = User.objects.create_user(
+            username="foreign-business",
+            email="foreignbusiness@test.com",
             password="test123",
             type="business",
             )
@@ -97,79 +110,64 @@ class BaseReviewCreateTestCase(APITestCase):
             features=self.offer_details[0].features,
             offer_type=self.offer_details[0].offer_type,
         )
+
+        self.reviews = [
+            Review.objects.create(
+                business_user=self.business_user,
+                reviewer=self.customer_user,
+                rating=5,
+                description="Excellent service!"
+            ),
+            Review.objects.create(
+                business_user=self.second_business_user,
+                reviewer=self.customer_user,
+                rating=3,
+                description="Good overall, but could be improved."
+            ),
+            Review.objects.create(
+                business_user=self.third_business_user,
+                reviewer=self.customer_user,
+                rating=4,
+                description="Everything was great!"
+            ),
+            ]
         
-        self.customer_token = Token.objects.create(user=self.customer_user)
-        self.business_token = Token.objects.create(user=self.business_user)
+        self.token = Token.objects.create(user=self.customer_user)
         self.client = APIClient()
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.customer_token.key)
-        self.url = reverse('review-list')
-
-        self.expected_fields = {
-            "id",
-            "business_user",
-            "reviewer",
-            "rating",
-            "description",
-            "created_at",
-            "updated_at",
-            }
-
-        self.payload = {
-              "business_user": self.business_user.id,
-              "rating": 4,
-              "description": "Alles war toll!"
-              }
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token.key)
+        self.url = reverse('base-info')
 
 
-class ReviewCreateSuccessTests(BaseReviewCreateTestCase):
+class BaseInfoTests(BaseReviewListTestCase):
 
     def setUp(self):
         super().setUp()
-        self.response = self.client.post(self.url, self.payload, format='json')
+        self.response = self.client.get(self.url)
 
-    def test_create_returns_201(self):
-        self.assertEqual(self.response.status_code, status.HTTP_201_CREATED)
+    def test_returns_200(self):
+        self.assertEqual(self.response.status_code, status.HTTP_200_OK)
 
-    def test_create_contains_all_expected_fields(self):
-        self.assertEqual(set(self.response.data.keys()), self.expected_fields)
+    def test_returns_correct_counts(self):
+        data = self.response.data
 
-
-
-class ReviewCreateAuthenticationTests(BaseReviewCreateTestCase):
-
-    def setUp(self):
-        super().setUp()
-        self.client.credentials()
-        self.response = self.client.post(self.url, self.payload, format='json')
-
-    def test_unauthenticated_post_returns_401(self):
-        self.assertEqual(self.response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(data["review_count"], 3)
+        self.assertEqual(data["average_rating"], 4.0)
+        self.assertEqual(data["business_profile_count"], 4)
+        self.assertEqual(data["offer_count"], 1)
 
 
-class ReviewCreateAuthorizationTests(BaseReviewCreateTestCase):
+class EmptyBaseInfoTests(APITestCase):
 
     def setUp(self):
-        super().setUp()
-        
-    def test_only_customer_can_let_review(self):
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.business_token.key)
-        response = self.client.post(self.url, self.payload, format='json')
+        self.url = reverse('base-info')
 
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+    def test_empty_db_returns_zeros(self):
+        response = self.client.get(self.url)
 
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-class ReviewCreateValidationTests(BaseReviewCreateTestCase):
+        self.assertEqual(response.data["review_count"], 0)
+        self.assertEqual(response.data["average_rating"], 0)
+        self.assertEqual(response.data["business_profile_count"], 0)
+        self.assertEqual(response.data["offer_count"], 0)
 
-    def setUp(self):
-        super().setUp()
-
-    def test_only_one_review_per_person(self):
-        response1 = self.client.post(self.url, self.payload, format='json')
-        response2 = self.client.post(self.url, self.payload, format='json')
-
-        self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(Review.objects.filter(
-            reviewer=self.customer_user,
-            business_user=self.business_user
-        ).count(), 1)

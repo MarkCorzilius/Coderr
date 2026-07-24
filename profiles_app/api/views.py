@@ -1,9 +1,9 @@
 from rest_framework.generics import ListAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
 
-from profile_app.api.permissions import IsProfileOwner
-from profile_app.api.serializers import ProfileDetailSerializer, ProfileListSerializer
-from profile_app.models import Profile
+from profiles_app.api.permissions import IsProfileOwner
+from profiles_app.api.serializers import ProfileDetailSerializer, ProfileListSerializer
+from profiles_app.models import Profile
 
 
 class ProfileRetrieveUpdateAPIView(RetrieveUpdateAPIView):

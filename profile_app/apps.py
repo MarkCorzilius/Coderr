@@ -2,7 +2,11 @@ from django.apps import AppConfig
 
 
 class ProfileAppConfig(AppConfig):
-    name = 'profile_app'
+    """App config for profile_app; loads signals on ready."""
+
+    name = "profile_app"
 
     def ready(self):
-        import profile_app.signals
+        """Import signals to register post-save handler."""
+
+        import profile_app.signals  # noqa: F401

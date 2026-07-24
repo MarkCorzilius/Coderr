@@ -1,22 +1,152 @@
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase, APIClient
-from orders_app.models import Order
+from rest_framework.authtoken.models import Token
+from rest_framework.test import APIClient, APITestCase
+
 from accounts_app.models import User
 from offers_app.models import Offer, OfferDetail
-from rest_framework.authtoken.models import Token
+from orders_app.models import Order
 from reviews_app.models import Review
 
 
 class BaseReviewUpdateTestCase(APITestCase):
+    """Shared test data for review update endpoint tests."""
 
     def setUp(self):
+        """Set up users, offer, order, a review, tokens, and authenticated client."""
+
         self.customer_user = User.objects.create_user(
-            username="customer",
-            email="customer@test.com",
-            password="test123",
-            type="customer",
-            )
+            username="customer", email="customer@test.com", password="test123", type="customer"
+        )
+        self.second_customer_user = User.objects.create_user(
+            username="second-customer", email="secondcustomer@test.com",
+            password="test123", type="customer"
+        )
+        self.business_user = User.objects.create_user(
+            username="business", email="business@test.com", password="test123", type="business"
+        )
+        self.second_business_user = User.objects.create_user(
+            username="second-business", email="secondbusiness@test.com",
+            password="test123", type="business"
+        )
+        self.offer = Offer.objects.create(
+            user=self.business_user, title="Professional Website Design",
+            image=None, description="Modern web design packages."
+        )
+        self.offer_details = [
+            OfferDetail.objects.create(
+                offer=self.offer, title="Starter Package", revisions=2,
+                delivery_time_in_days=5, price=300,
+                features=["Landing Page Design", "Responsive Layout", "Basic UI Components"],
+                offer_type="basic",
+            ),
+        ]
+        Order.objects.create(
+            customer_user=self.customer_user, business_user=self.business_user,
+            title=self.offer_details[0].title, revisions=self.offer_details[0].revisions,
+            delivery_time_in_days=self.offer_details[0].delivery_time_in_days,
+            price=self.offer_details[0].price, features=self.offer_details[0].features,
+            offer_type=self.offer_details[0].offer_type,
+        )
+        self.review = Review.objects.create(
+            business_user=self.business_user, reviewer=self.customer_user,
+            rating=5, description="Excellent service!"
+        )
+        self.customer_token = Token.objects.create(user=self.customer_user)
+        self.second_customer_token = Token.objects.create(user=self.second_customer_user)
+        self.business_token = Token.objects.create(user=self.business_user)
+        self.client = APIClient()
+        self.client.credentials(HTTP_AUTHORIZATION="Token " + self.customer_token.key)
+        self.url = reverse("review-detail", kwargs={"pk": self.review.id})
+        self.expected_fields = {
+            "id", "business_user", "reviewer", "rating", "description", "created_at", "updated_at"
+        }
+        self.payload = {"business_user": 1, "rating": 2}
+
+
+class ReviewUpdateSuccessTests(BaseReviewUpdateTestCase):
+    """Test successful review partial update by the reviewer."""
+
+    def setUp(self):
+        """Set up and fire PATCH request."""
+
+        super().setUp()
+        self.response = self.client.patch(self.url, self.payload, format="json")
+
+    def test_patch_returns_200(self):
+        """Test that PATCH returns 200 OK."""
+
+        self.assertEqual(self.response.status_code, status.HTTP_200_OK)
+
+    def test_updated_db(self):
+        """Test that rating is updated and description unchanged in the database."""
+
+        original_description = self.review.description
+        self.review.refresh_from_db()
+        self.assertEqual(self.review.rating, self.payload["rating"])
+        self.assertEqual(self.response.data["description"], original_description)
+
+    def test_patch_returns_expected_fields(self):
+        """Test that the response contains all expected fields."""
+
+        self.assertEqual(set(self.response.data.keys()), self.expected_fields)
+
+    def test_updated_at_works(self):
+        """Test that updated_at advances after the PATCH."""
+
+        old_updated_at = self.review.updated_at
+        self.review.refresh_from_db()
+        response_updated_at = self.response.data["updated_at"]
+        self.assertNotEqual(response_updated_at, old_updated_at)
+        self.assertGreater(self.review.updated_at, old_updated_at)
+
+
+class ReviewUpdateAuthenticationTests(BaseReviewUpdateTestCase):
+    """Test that unauthenticated users cannot update reviews."""
+
+    def setUp(self):
+        """Set up with cleared credentials and fire PATCH request."""
+
+        super().setUp()
+        self.client.credentials()
+        self.response = self.client.patch(self.url, self.payload, format="json")
+
+    def test_unauthenticated_patch_returns_401(self):
+        """Test that unauthenticated request returns 401."""
+
+        self.assertEqual(self.response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class ReviewUpdateAuthorizationTests(BaseReviewUpdateTestCase):
+    """Test that only the review creator can update a review."""
+
+    def setUp(self):
+        """Set up base test data."""
+
+        super().setUp()
+
+    def test_foreign_user_gets_403(self):
+        """Test that a different user receives 403 Forbidden."""
+
+        self.client.credentials(HTTP_AUTHORIZATION="Token " + self.second_customer_token.key)
+        response = self.client.patch(self.url, self.payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class ReviewUpdateNotFoundTests(BaseReviewUpdateTestCase):
+    """Test update on a non-existent review."""
+
+    def setUp(self):
+        """Set up base test data."""
+
+        super().setUp()
+
+    def test_review_not_found_returns_404(self):
+        """Test that patching a non-existent review returns 404."""
+
+        url = reverse("review-detail", kwargs={"pk": 9999})
+        response = self.client.patch(url, self.payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
         self.second_customer_user = User.objects.create_user(
             username="second-customer",

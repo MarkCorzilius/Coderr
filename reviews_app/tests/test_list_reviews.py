@@ -1,22 +1,175 @@
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase, APIClient
-from orders_app.models import Order
+from rest_framework.authtoken.models import Token
+from rest_framework.test import APIClient, APITestCase
+
 from accounts_app.models import User
 from offers_app.models import Offer, OfferDetail
-from rest_framework.authtoken.models import Token
+from orders_app.models import Order
 from reviews_app.models import Review
 
 
 class BaseReviewListTestCase(APITestCase):
+    """Shared test data for review list endpoint tests."""
 
     def setUp(self):
+        """Set up users, offer, order, three reviews, and authenticated client."""
+
         self.customer_user = User.objects.create_user(
-            username="customer",
-            email="customer@test.com",
-            password="test123",
-            type="customer",
-            )
+            username="customer", email="customer@test.com", password="test123", type="customer"
+        )
+        self.business_user = User.objects.create_user(
+            username="business", email="business@test.com", password="test123", type="business"
+        )
+        self.second_business_user = User.objects.create_user(
+            username="second-business", email="secondbusiness@test.com", password="test123", type="business"
+        )
+        self.third_business_user = User.objects.create_user(
+            username="third-business", email="thirdbusiness@test.com", password="test123", type="business"
+        )
+        self.foreign_business_user = User.objects.create_user(
+            username="foreign-business", email="foreignbusiness@test.com", password="test123", type="business"
+        )
+        self.offer = Offer.objects.create(
+            user=self.business_user, title="Professional Website Design",
+            image=None, description="Modern web design packages."
+        )
+        self.offer_details = [
+            OfferDetail.objects.create(
+                offer=self.offer, title="Starter Package", revisions=2,
+                delivery_time_in_days=5, price=300,
+                features=["Landing Page Design", "Responsive Layout", "Basic UI Components"],
+                offer_type="basic",
+            ),
+        ]
+        Order.objects.create(
+            customer_user=self.customer_user, business_user=self.business_user,
+            title=self.offer_details[0].title, revisions=self.offer_details[0].revisions,
+            delivery_time_in_days=self.offer_details[0].delivery_time_in_days,
+            price=self.offer_details[0].price, features=self.offer_details[0].features,
+            offer_type=self.offer_details[0].offer_type,
+        )
+        self.reviews = [
+            Review.objects.create(
+                business_user=self.business_user, reviewer=self.customer_user,
+                rating=5, description="Excellent service!"
+            ),
+            Review.objects.create(
+                business_user=self.second_business_user, reviewer=self.customer_user,
+                rating=3, description="Good overall, but could be improved."
+            ),
+            Review.objects.create(
+                business_user=self.third_business_user, reviewer=self.customer_user,
+                rating=4, description="Everything was great!"
+            ),
+        ]
+        self.token = Token.objects.create(user=self.customer_user)
+        self.client = APIClient()
+        self.client.credentials(HTTP_AUTHORIZATION="Token " + self.token.key)
+        self.url = reverse("review-list")
+        self.expected_fields = {
+            "id", "business_user", "reviewer", "rating", "description", "created_at", "updated_at"
+        }
+
+
+class ReviewListSuccessTests(BaseReviewListTestCase):
+    """Test successful review list retrieval."""
+
+    def setUp(self):
+        """Set up and fire GET request."""
+
+        super().setUp()
+        self.response = self.client.get(self.url)
+
+    def test_list_returns_200(self):
+        """Test that listing reviews returns 200 OK."""
+
+        self.assertEqual(self.response.status_code, status.HTTP_200_OK)
+
+    def test_list_is_filled(self):
+        """Test that all seeded reviews are returned."""
+
+        self.assertEqual(len(self.response.data), 3)
+
+    def test_list_contains_all_expected_fields(self):
+        """Test that each review item has all expected fields."""
+
+        self.assertEqual(set(self.response.data[0].keys()), self.expected_fields)
+
+
+class ReviewListAuthenticationTests(BaseReviewListTestCase):
+    """Test that unauthenticated users cannot list reviews."""
+
+    def setUp(self):
+        """Set up with cleared credentials and fire GET request."""
+
+        super().setUp()
+        self.client.credentials()
+        self.response = self.client.get(self.url)
+
+    def test_unauthenticated_returns_401(self):
+        """Test that unauthenticated request returns 401."""
+
+        self.assertEqual(self.response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class ReviewListFilterTests(BaseReviewListTestCase):
+    """Test filtering reviews by business user and reviewer."""
+
+    def setUp(self):
+        """Set up base test data."""
+
+        super().setUp()
+
+    def test_filter_by_business_user_id(self):
+        """Test that filtering by business_user_id returns only that user's reviews."""
+
+        response = self.client.get(self.url, {"business_user_id": self.business_user.id})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        for review in response.data:
+            self.assertEqual(review["business_user"], self.business_user.id)
+
+    def test_filter_by_reviewer_id(self):
+        """Test that filtering by reviewer_id returns all reviews by that user."""
+
+        response = self.client.get(self.url, {"reviewer_id": self.customer_user.id})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 3)
+        for review in response.data:
+            self.assertEqual(review["reviewer"], self.customer_user.id)
+
+    def test_filter_by_business_user_id_returns_empty_list(self):
+        """Test that filtering for a business with no reviews returns empty list."""
+
+        response = self.client.get(self.url, {"business_user_id": self.foreign_business_user.id})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 0)
+
+
+class ReviewListOrderingTests(BaseReviewListTestCase):
+    """Test ordering of the review list."""
+
+    def setUp(self):
+        """Set up base test data."""
+
+        super().setUp()
+
+    def test_ordering_by_updated_at_ascending(self):
+        """Test that ascending ordering by updated_at returns oldest first."""
+
+        response = self.client.get(self.url, {"ordering": "updated_at"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [review["id"] for review in response.data]
+        self.assertEqual(ids, [self.reviews[0].id, self.reviews[1].id, self.reviews[2].id])
+
+    def test_ordering_by_updated_at_descending(self):
+        """Test that descending ordering by updated_at returns newest first."""
+
+        response = self.client.get(self.url, {"ordering": "-updated_at"})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [review["id"] for review in response.data]
+        self.assertEqual(ids, [self.reviews[2].id, self.reviews[1].id, self.reviews[0].id])
 
         self.business_user = User.objects.create_user(
             username="business",

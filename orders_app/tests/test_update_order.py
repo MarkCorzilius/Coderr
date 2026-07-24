@@ -1,21 +1,178 @@
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase, APIClient
-from orders_app.models import Order
+from rest_framework.authtoken.models import Token
+from rest_framework.test import APIClient, APITestCase
+
 from accounts_app.models import User
 from offers_app.models import Offer, OfferDetail
-from rest_framework.authtoken.models import Token
+from orders_app.models import Order
 
 
 class BaseOrderUpdateTestCase(APITestCase):
+    """Shared test data for order update endpoint tests."""
 
     def setUp(self):
+        """Set up users, offer, order, tokens, and fire PATCH request."""
+
         self.customer_user = User.objects.create_user(
-            username="customer",
-            email="customer@test.com",
-            password="test123",
-            type="customer",
-            )
+            username="customer", email="customer@test.com", password="test123", type="customer"
+        )
+        self.business_user = User.objects.create_user(
+            username="business", email="business@test.com", password="test123", type="business"
+        )
+        self.foreign_business_user = User.objects.create_user(
+            username="foreign_business_user", email="foreignbusiness@test.com",
+            password="test123", type="business"
+        )
+        self.offer = Offer.objects.create(
+            user=self.business_user, title="Professional Website Design",
+            image=None, description="Modern web design packages."
+        )
+        self.offer_details = [
+            OfferDetail.objects.create(
+                offer=self.offer, title="Starter Package", revisions=2,
+                delivery_time_in_days=5, price=300,
+                features=["Landing Page Design", "Responsive Layout", "Basic UI Components"],
+                offer_type="basic",
+            ),
+            OfferDetail.objects.create(
+                offer=self.offer, title="Business Package", revisions=5,
+                delivery_time_in_days=10, price=700,
+                features=["Multi-page Website Design", "Responsive Layout", "Custom UI Components", "Design System"],
+                offer_type="standard",
+            ),
+            OfferDetail.objects.create(
+                offer=self.offer, title="Premium Package", revisions=10,
+                delivery_time_in_days=15, price=1500,
+                features=["Complete Website Design", "Advanced UI/UX Concept", "Custom Design System"],
+                offer_type="premium",
+            ),
+        ]
+        self.order = Order.objects.create(
+            customer_user=self.customer_user,
+            business_user=self.business_user,
+            title=self.offer_details[0].title,
+            revisions=self.offer_details[0].revisions,
+            delivery_time_in_days=self.offer_details[0].delivery_time_in_days,
+            price=self.offer_details[0].price,
+            features=self.offer_details[0].features,
+            offer_type=self.offer_details[0].offer_type,
+        )
+        self.business_token = Token.objects.create(user=self.business_user)
+        self.foreign_business_token = Token.objects.create(user=self.foreign_business_user)
+        self.customer_token = Token.objects.create(user=self.customer_user)
+        self.client = APIClient()
+        self.client.credentials(HTTP_AUTHORIZATION="Token " + self.business_token.key)
+        self.payload = {"status": "completed"}
+        self.url = reverse("order-detail", kwargs={"pk": self.order.id})
+        self.response = self.client.patch(self.url, self.payload, format="json")
+
+
+class OrderUpdateSuccessTests(BaseOrderUpdateTestCase):
+    """Test successful order status update by the business owner."""
+
+    def setUp(self):
+        """Set up base test data."""
+
+        super().setUp()
+
+    def test_order_update_returns_200(self):
+        """Test that PATCH returns 200 OK."""
+
+        self.assertEqual(self.response.status_code, status.HTTP_200_OK)
+
+    def test_order_updated_status_in_db(self):
+        """Test that the order status is persisted in the database."""
+
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, "completed")
+
+    def test_updated_at_did_update(self):
+        """Test that updated_at timestamp advances after the update."""
+
+        old_updated_at = self.order.updated_at
+        self.order.refresh_from_db()
+        self.assertGreater(self.order.updated_at, old_updated_at)
+
+
+class OrderUpdateAuthenticationTests(BaseOrderUpdateTestCase):
+    """Test that unauthenticated users cannot update orders."""
+
+    def setUp(self):
+        """Set up with cleared credentials and fire PATCH request."""
+
+        super().setUp()
+        self.client.credentials()
+        self.response = self.client.patch(self.url, self.payload, format="json")
+
+    def test_unauthenticated_user_returns_401(self):
+        """Test that unauthenticated request returns 401."""
+
+        self.assertEqual(self.response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class OrderUpdateAuthorizationTests(BaseOrderUpdateTestCase):
+    """Test that customers and foreign business users cannot update orders."""
+
+    def setUp(self):
+        """Set up with customer credentials and fire PATCH request."""
+
+        super().setUp()
+        self.client.credentials(HTTP_AUTHORIZATION="Token " + self.customer_token.key)
+        self.response = self.client.patch(self.url, self.payload, format="json")
+
+    def test_customer_gets_403(self):
+        """Test that customer user receives 403 Forbidden."""
+
+        self.assertEqual(self.response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_business_user_not_owning_order_gets_403(self):
+        """Test that a business user not owning the order receives 403."""
+
+        self.client.credentials(HTTP_AUTHORIZATION="Token " + self.foreign_business_token.key)
+        response = self.client.patch(self.url, self.payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class OrderUpdateValidationTests(BaseOrderUpdateTestCase):
+    """Test validation errors on order status update."""
+
+    def setUp(self):
+        """Set up base test data."""
+
+        super().setUp()
+
+    def test_wrong_status_value_returns_400(self):
+        """Test that an invalid status value returns 400."""
+
+        url = reverse("order-detail", kwargs={"pk": self.order.id})
+        response = self.client.patch(url, {"status": "wrongStatus"}, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_disallowed_field_returns_400(self):
+        """Test that patching a read-only field does not change its value."""
+
+        old_price = self.order.price
+        response = self.client.patch(self.url, {"price": 9999}, format="json")
+        self.order.refresh_from_db()
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(self.order.price, old_price)
+
+
+class OrderUpdateNotFoundTests(BaseOrderUpdateTestCase):
+    """Test update on a non-existent order."""
+
+    def setUp(self):
+        """Set up and fire PATCH for an unknown order ID."""
+
+        super().setUp()
+        url = reverse("order-detail", kwargs={"pk": 9999})
+        self.response = self.client.patch(url, self.payload, format="json")
+
+    def test_unreal_order_returns_404(self):
+        """Test that patching a non-existent order returns 404."""
+
+        self.assertEqual(self.response.status_code, status.HTTP_404_NOT_FOUND)
 
         self.business_user = User.objects.create_user(
             username="business",

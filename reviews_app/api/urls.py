@@ -1,10 +1,12 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework import routers
+
 from reviews_app.api.views import ReviewViewSet
 
+
 router = routers.SimpleRouter()
-router.register(r'reviews', ReviewViewSet)
+router.register(r"reviews", ReviewViewSet)
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]

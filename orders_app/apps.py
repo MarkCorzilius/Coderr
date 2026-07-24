@@ -2,4 +2,6 @@ from django.apps import AppConfig
 
 
 class OrdersAppConfig(AppConfig):
-    name = 'orders_app'
+    """App config for orders_app."""
+
+    name = "orders_app"

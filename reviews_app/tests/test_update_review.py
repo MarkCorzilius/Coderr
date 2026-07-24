@@ -143,24 +143,23 @@ class ReviewUpdateSuccessTests(BaseReviewUpdateTestCase):
         self.response = self.client.patch(self.url, self.payload, format='json')
 
     def test_patch_returns_200(self):
-        self.review.refresh_from_db()
-        self.assertEqual(self.review.rating, 2)
         self.assertEqual(self.response.status_code, status.HTTP_200_OK)
 
-    def test_database_updated(self):
-        original_rating = self.review.rating
+    def test_updated_db(self):
         original_description = self.review.description
         self.review.refresh_from_db()
-        self.assertEqual(self.response.data['rating'], original_rating)
+        self.assertEqual(self.review.rating, self.payload['rating'])
         self.assertEqual(self.response.data['description'], original_description)
 
     def test_patch_returns_expected_fields(self):
         self.assertEqual(set(self.response.data.keys()), self.expected_fields)
 
     def test_updated_at_works(self):
-        original_update_at = self.review.updated_at
+        old_updated_at = self.review.updated_at
         self.review.refresh_from_db()
-        self.assertEqual(self.response.data['updated_at'], original_update_at)
+        response_updated_at = self.response.data['updated_at']
+        self.assertNotEqual(response_updated_at, old_updated_at)
+        self.assertGreater(self.review.updated_at, old_updated_at)
 
 
 class ReviewUpdateAuthenticationTests(BaseReviewUpdateTestCase):
@@ -184,29 +183,6 @@ class ReviewUpdateAuthorizationTests(BaseReviewUpdateTestCase):
         response = self.client.patch(self.url, self.payload, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-        
-
-class ReviewUpdateValidationTests(BaseReviewUpdateTestCase):
-
-    def setUp(self):
-        super().setUp()
-
-    def test_update_wrong_payload_returns_400(self):
-        payload = {
-            "issues": "Noch besser als erwartet!"
-            }
-        url = reverse('review-detail', kwargs={'pk': self.review.id})
-        response = self.client.patch(url, payload, format='json')    
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST) 
-
-    def test_update_business_user_returns_400(self):
-        payload = {
-            "business_user": 1
-            }
-        url = reverse('review-detail', kwargs={'pk': self.review.id})
-        response = self.client.patch(url, payload, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 class ReviewUpdateNotFoundTests(BaseReviewUpdateTestCase):

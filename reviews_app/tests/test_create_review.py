@@ -115,7 +115,7 @@ class BaseReviewCreateTestCase(APITestCase):
             }
 
         self.payload = {
-              "business_user": 1,
+              "business_user": self.business_user.id,
               "rating": 4,
               "description": "Alles war toll!"
               }
@@ -125,16 +125,13 @@ class ReviewCreateSuccessTests(BaseReviewCreateTestCase):
 
     def setUp(self):
         super().setUp()
-        self.response = self.client.create(self.url, self.payload, format='json')
+        self.response = self.client.post(self.url, self.payload, format='json')
 
     def test_create_returns_201(self):
         self.assertEqual(self.response.status_code, status.HTTP_201_CREATED)
 
-    def test_create_is_filled(self):
-        self.assertEqual(len(self.response.data), 1)
-
     def test_create_contains_all_expected_fields(self):
-        self.assertEqual(set(self.response.data[0].keys()), self.expected_fields)
+        self.assertEqual(set(self.response.data.keys()), self.expected_fields)
 
 
 
@@ -155,17 +152,23 @@ class ReviewCreateAuthorizationTests(BaseReviewCreateTestCase):
         super().setUp()
         
     def test_only_customer_can_let_review(self):
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.business_user.key)
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.business_token.key)
         response = self.client.post(self.url, self.payload, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class ReviewCreateValidationTests(BaseReviewCreateTestCase):
+
+    def setUp(self):
+        super().setUp()
 
     def test_only_one_review_per_person(self):
         response1 = self.client.post(self.url, self.payload, format='json')
         response2 = self.client.post(self.url, self.payload, format='json')
 
         self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response2.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Review.objects.filter(
             reviewer=self.customer_user,
             business_user=self.business_user

@@ -17,6 +17,11 @@ class IsOfferOwner(permissions.BasePermission):
 
     message = "Action only allowed for offer owner."
 
+    def has_permission(self, request, view):
+        """Require authentication before checking object ownership."""
+
+        return request.user.is_authenticated
+
     def has_object_permission(self, request, view, obj):
         """Check the requesting user owns the offer."""
 

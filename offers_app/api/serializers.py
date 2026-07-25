@@ -93,22 +93,29 @@ class OfferCreateUpdateSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Update offer fields and each specified nested detail."""
-
+    
         details_data = validated_data.pop("details", [])
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
+    
         for detail_data in details_data:
             detail_id = detail_data.get("id")
-            if not detail_id:
-                raise serializers.ValidationError(
-                    {"details": "Each detail update requires an id."}
-                )
-            detail = OfferDetail.objects.get(id=detail_id, offer=instance)
+            if detail_id:
+                detail = OfferDetail.objects.get(id=detail_id, offer=instance)
+            else:
+                offer_type = detail_data.get("offer_type")
+                if not offer_type:
+                    raise serializers.ValidationError(
+                        {"details": "Each detail update requires an id or offer_type."}
+                    )
+                detail = OfferDetail.objects.get(offer=instance, offer_type=offer_type)
+    
             for attr, value in detail_data.items():
-                if attr != "id":
+                if attr not in ("id", "offer_type"):
                     setattr(detail, attr, value)
             detail.save()
+    
         return instance
 
 

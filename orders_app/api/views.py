@@ -110,7 +110,7 @@ class CompletedOrderCountView(GenericAPIView):
 
 class OrderCountView(GenericAPIView):
     serializer_class = OrderCountSerializer
-    permission_classes = [IsAuthenticatedBusinessOwnerUser]
+    permission_classes = [IsAuthenticated]
     lookup_field = "business_user_id"
 
     def get(self, request, business_user_id):
@@ -126,7 +126,7 @@ class OrderCountView(GenericAPIView):
 
 class CompletedOrderCountView(GenericAPIView):
     serializer_class = CompletedOrderCountSerializer
-    permission_classes = [IsAuthenticatedBusinessOwnerUser]
+    permission_classes = [IsAuthenticated]
     lookup_field = "business_user_id"
 
     def get(self, request, business_user_id):

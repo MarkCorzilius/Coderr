@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets
 from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import IsAuthenticated
@@ -16,6 +17,8 @@ from orders_app.api.serializers import (
     OrderUpdateSerializer,
 )
 from orders_app.models import Order
+
+from accounts_app.models import User
 
 
 class OrderViewSet(viewsets.ModelViewSet):
@@ -60,11 +63,9 @@ class OrderCountView(GenericAPIView):
     def get(self, request, business_user_id):
         """Return in-progress order count for the authenticated business user."""
 
-        count = Order.objects.filter(
-            business_user=request.user, status="in_progress"
-        ).count()
-        serializer = self.get_serializer({"order_count": count})
-        return Response(serializer.data)
+        business_user = get_object_or_404(User, pk=business_user_id)
+        count = Order.objects.filter(business_user=business_user, status="in_progress").count()
+        return Response(self.get_serializer({"order_count": count}).data)
 
 
 class CompletedOrderCountView(GenericAPIView):
@@ -77,64 +78,6 @@ class CompletedOrderCountView(GenericAPIView):
     def get(self, request, business_user_id):
         """Return completed order count for the authenticated business user."""
 
-        count = Order.objects.filter(
-            business_user=request.user, status="completed"
-        ).count()
-        serializer = self.get_serializer({"completed_order_count": count})
-        return Response(serializer.data)
-
-    def get_serializer_class(self):
-        if self.action in ['list', 'create']:
-            return OrderListCreateSerializer
-        if self.action in ['update', 'partial_update']:
-            return OrderUpdateSerializer
-        return OrderUpdateSerializer
-
-    def get_permissions(self):
-        if self.action == 'create':
-            return [IsAuthenticatedCustomerUser()]
-        if self.action in ['update', 'partial_update']:
-            return [IsAuthenticatedBusinessOwnerUser()]
-        if self.action == 'destroy':
-            return [IsAuthenticatedStaffUser()]
-        return [IsAuthenticated()]
-
-    def get_queryset(self):
-        user = self.request.user
-
-        if self.action == 'list':
-            return Order.objects.filter(Q(customer_user=user) | Q(business_user=user))
-        else:
-            return Order.objects.all()
-
-
-class OrderCountView(GenericAPIView):
-    serializer_class = OrderCountSerializer
-    permission_classes = [IsAuthenticated]
-    lookup_field = "business_user_id"
-
-    def get(self, request, business_user_id):
-        count = Order.objects.filter(
-            business_user=request.user,
-            status="in_progress"
-        ).count()
-        serializer = self.get_serializer({
-            "order_count": count
-        })
-        return Response(serializer.data)
-
-
-class CompletedOrderCountView(GenericAPIView):
-    serializer_class = CompletedOrderCountSerializer
-    permission_classes = [IsAuthenticated]
-    lookup_field = "business_user_id"
-
-    def get(self, request, business_user_id):
-        count = Order.objects.filter(
-            business_user=request.user,
-            status="completed"
-        ).count()
-        serializer = self.get_serializer({
-            "completed_order_count": count
-        })
-        return Response(serializer.data)
+        business_user = get_object_or_404(User, pk=business_user_id)
+        count = Order.objects.filter(business_user=business_user, status="completed").count()
+        return Response(self.get_serializer({"completed_order_count": count}).data)

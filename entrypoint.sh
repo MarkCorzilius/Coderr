@@ -1,16 +1,6 @@
 #!/bin/sh
 set -e
 
-# wait for postgres
-echo "Waiting for for PostgreSQL for $DB_HOST:$DB_PORT"
-
-while ! pg_isready -h "$DB_HOST" -p "$DB_PORT" -q; do
-    echo "Cannot reach db, wait 1 sec"
-    sleep 1
-done
-
-echo "PostgreSQL is ready, continue..."
-
 python manage.py collectstatic --noinput
 python manage.py makemigrations
 python manage.py migrate

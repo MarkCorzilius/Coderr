@@ -42,4 +42,3 @@ dist/
 
 # Environment
 .env
-.env.*

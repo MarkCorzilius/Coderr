@@ -28,44 +28,34 @@ It includes a secure authentication and authorization system, role-based permiss
 
 ## 🚀 Quickstart Instructions
 
-- Clone the repository
+Clone the repository.
+
 ```bash
-git clone <your-repo-url>
+git clone <repo>
 ```
 
-- Create a virtual environment:
+Copy the environment template and fill in your own values (DB, Redis, superuser, secret key).
+
 ```bash
-python -m venv venv
+cp .env.template .env
 ```
 
-- Activate Virtual Environment:
-Windows:
+Build and start all services (Django, PostgreSQL, Redis) with Docker Compose.
+
 ```bash
-venv\Scripts\activate
-```
-Mac:
-```bash
-source venv/bin/activate
+docker compose -f compose.dev.yaml up --build
 ```
 
-- Install Dependencies:
+Follow the backend container logs.
+
 ```bash
-pip install -r requirements.txt
+docker compose -f compose.dev.yaml logs -f web
 ```
 
-- Run Database Migrations:
-```bash
-python manage.py migrate
-```
+Stop all running containers.
 
-- Create Superuser:
 ```bash
-python manage.py createsuperuser
-```
-
-- Run Server:
-```bash
-python manage.py runserver
+docker compose -f compose.dev.yaml down
 ```
 
 ---
@@ -121,12 +111,16 @@ GET /api/base-info/ → aggregated base info (e.g. counts, stats)
 
 # 🧪 Testing
 
-- Run Integration tests using command ```python manage.py test```
-or
-- Use Postman to test API
-- Register or login first
-- Copy token from login response
+Tests are written with Django's test framework and located under each app's `tests/` folder (e.g. `accounts_app/tests/`).
+
+Run the full test suite inside the running backend container:
 
 ```bash
-Authorization: Token <your_token>
+docker compose -f compose.dev.yaml exec web python manage.py test
+```
+
+Run tests for a single app:
+
+```bash
+docker compose -f compose.dev.yaml exec web python manage.py test accounts_app
 ```

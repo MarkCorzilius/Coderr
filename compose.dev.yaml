@@ -1,0 +1,30 @@
+services:
+  db:
+    container_name: postgres
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+  web:
+    command: python manage.py runserver 0.0.0.0:8000
+    build: .
+    container_name: coderr_backend
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    volumes:
+      - .:/app
+      - coderr_media:/app/media
+      - coderr_static:/app/static
+
+volumes:
+  postgres_data:
+  coderr_media:
+  coderr_static:

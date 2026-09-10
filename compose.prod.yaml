@@ -1,7 +1,7 @@
 services:
   db:
     container_name: postgres
-    image: postgres:latest
+    image: postgres:18
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
@@ -15,20 +15,21 @@ services:
       retries: 5
 
   web:
-    command: python manage.py runserver 0.0.0.0:8000
+    command: gunicorn core.wsgi:application --bind 0.0.0.0:8000
     build: .
     container_name: coderr_backend
-    env_file:
-      - .env
+    env_file: 
+      - .env.prod
     ports:
       - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
     volumes:
-      - .:/app
       - coderr_media:/app/media
       - coderr_static:/app/static
+    restart: unless-stopped
+
 
 volumes:
   postgres_data:

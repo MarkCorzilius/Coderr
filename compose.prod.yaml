@@ -1,6 +1,5 @@
 services:
   db:
-    container_name: postgres
     image: postgres:18
     environment:
       POSTGRES_DB: ${DB_NAME}
@@ -13,25 +12,18 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   web:
     command: gunicorn core.wsgi:application --bind 0.0.0.0:8000
     build: .
-    container_name: coderr_backend
     env_file: 
       - .env.prod
-    ports:
-      - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - coderr_media:/app/media
-      - coderr_static:/app/static
     restart: unless-stopped
 
 
 volumes:
   postgres_data:
-  coderr_media:
-  coderr_static:

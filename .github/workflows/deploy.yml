@@ -10,6 +10,9 @@ jobs:
   test:
     # CI
     runs-on: ubuntu-latest
+    env:
+      DEBUG: "True"
+
     strategy:
       max-parallel: 4
       matrix:

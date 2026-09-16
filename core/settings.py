@@ -166,6 +166,7 @@ if DEBUG:
 else:
     AWS_STORAGE_BUCKET_NAME = os.environ["AWS_STORAGE_BUCKET_NAME"]
     AWS_S3_REGION_NAME = os.environ["AWS_S3_REGION_NAME"]
+    AWS_S3_ENDPOINT_URL = os.environ["AWS_S3_ENDPOINT_URL"]
     
     STORAGES = {
         "default": {

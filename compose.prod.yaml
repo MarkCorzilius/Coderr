@@ -16,6 +16,8 @@ services:
 
   web:
     command: gunicorn core.wsgi:application --bind 0.0.0.0:8000
+    ports:
+      - "127.0.0.1:8000:8000"
     build: .
     env_file: 
       - .env.prod

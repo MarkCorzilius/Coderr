@@ -7,13 +7,13 @@ class Profile(models.Model):
     """Represent a user profile with extended personal information."""
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
-    first_name = models.CharField(max_length=75, default=" ")
-    last_name = models.CharField(max_length=75, default=" ")
+    first_name = models.CharField(blank=True, max_length=75, default=" ")
+    last_name = models.CharField(blank=True, max_length=75, default=" ")
     file = models.FileField(blank=True, null=True, upload_to="uploads/")
-    location = models.CharField(max_length=150, default="")
-    tel = models.CharField(default=" ")
-    description = models.TextField(max_length=300, default=" ")
-    working_hours = models.CharField(default=" ", max_length=100)
+    location = models.CharField(blank=True, max_length=150, default="")
+    tel = models.CharField(blank=True, default=" ")
+    description = models.TextField(blank=True, max_length=300, default=" ")
+    working_hours = models.CharField(blank=True, default=" ", max_length=100)
 
     def __str__(self):
         """Return string representation of the profile."""

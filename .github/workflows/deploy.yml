@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DEBUG: "True"
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
       DB_NAME: coderr_test
       DB_USER: postgres
       DB_PASSWORD: postgres

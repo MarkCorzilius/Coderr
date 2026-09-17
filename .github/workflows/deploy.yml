@@ -85,8 +85,20 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
         
-      - name: Test SSH
+      - name: Deploy to EC2
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
-          printf '%s\n' '${{ secrets.EC2_SSH_KEY }}' > key.pem
+          printf '%s\n' "$SSH_PRIVATE_KEY" > key.pem
           chmod 600 key.pem
-          ssh -o StrictHostKeyChecking=no -i key.pem ubuntu@${{ vars.EC2_HOST }} "echo SSH works"
+
+          ssh -o StrictHostKeyChecking=no -i key.pem ubuntu@${{ vars.EC2_HOST }} "
+            cd /opt/coderr &&
+            export IMAGE_TAG=${{ github.sha }} &&
+            aws ecr get-login-password --region eu-central-1 |
+              docker login --username AWS --password-stdin 254771353313.dkr.ecr.eu-central-1.amazonaws.com &&
+            docker compose --env-file .env.prod -f compose.prod.yaml pull web &&
+            docker compose --env-file .env.prod -f compose.prod.yaml up -d web
+          "
+          
+          rm -f key.pem
